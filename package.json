@@ -1,0 +1,24 @@
+{
+  "name": "sentinel-portal",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "web",
+    "api",
+    "sanity"
+  ],
+  "scripts": {
+    "dev:web": "npm -w web run dev",
+    "dev:api": "npm -w api run dev",
+    "build": "npm -w web run build && npm -w api run build",
+    "test": "npm -w api run test",
+    "lint": "npm -w web run lint",
+    "typecheck": "npm -w web run typecheck && npm -w api run typecheck",
+    "db:up": "docker compose -f infra/docker-compose.yml up -d",
+    "db:down": "docker compose -f infra/docker-compose.yml down",
+    "seed": "npm -w api run seed"
+  },
+  "engines": {
+    "node": ">=20.10.0"
+  }
+}
