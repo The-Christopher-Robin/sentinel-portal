@@ -2,6 +2,7 @@ import express from 'express'
 import cors from 'cors'
 import { chatRouter } from './routes/chat.js'
 import { healthRouter } from './routes/health.js'
+import { versionRouter } from './routes/version.js'
 import { logger } from './services/logger.js'
 
 export function createApp(): express.Express {
@@ -22,6 +23,7 @@ export function createApp(): express.Express {
   })
 
   app.use(healthRouter)
+  app.use(versionRouter)
   app.use(chatRouter)
 
   app.use((req, res) => {
