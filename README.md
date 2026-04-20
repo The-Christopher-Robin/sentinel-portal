@@ -12,7 +12,7 @@ This is a resume project, but it's wired end-to-end: auth, CMS-driven marketing 
 | Auth | Auth.js v5 (Credentials provider, JWT sessions) |
 | CMS | Sanity (landing page + blog schemas) |
 | Chat API | Node.js / Express, Zod, Pino, `express-rate-limit` |
-| AI | OpenAI (`gpt-4o-mini` chat, `text-embedding-3-small` embeddings), LangChain |
+| AI | LangChain with a pluggable LLM layer. Default: self-hosted **Ollama** (`llama3.1:8b` chat, `nomic-embed-text` embeddings). Drop-in fallback: OpenAI (`gpt-4o-mini`, `text-embedding-3-small`) via `LLM_PROVIDER=openai` |
 | Data | PostgreSQL 16 + `pgvector` (cosine similarity) |
 | Storage | AWS S3 (transcript archive, JSONL) |
 | Serverless | `serverless-http` + AWS SAM (API Gateway → Lambda) |
@@ -34,16 +34,39 @@ The repo is an npm workspaces monorepo; a single `npm install` at the root hydra
 
 ## Running it locally
 
+The default setup is fully self-hosted — **no API keys, no per-token cost**, just Ollama running on your machine.
+
 ```bash
-cp .env.example .env                                # fill in values
-docker compose -f infra/docker-compose.yml up -d    # Postgres with pgvector
+# 1. Pull the open-weight models (one-time, ~5 GB)
+ollama pull llama3.1:8b
+ollama pull nomic-embed-text
+
+# 2. Configure env
+cp .env.example .env                                # sensible defaults
+
+# 3. Start Postgres + pgvector
+docker compose -f infra/docker-compose.yml up -d
+
+# 4. Install + seed + run
 npm install
-npm -w api run seed                                 # embed the starter KB
+npm -w api run seed                                 # embed the starter KB with Ollama
 npm -w api run dev                                  # :4000
 npm -w web run dev                                  # :3000
 ```
 
 Sign in at `http://localhost:3000/signin` with the demo credentials printed in the server logs, then head to `/portal` and open the chat widget.
+
+### Using OpenAI instead
+
+Swap the provider without touching code:
+
+```bash
+# .env
+LLM_PROVIDER=openai
+OPENAI_API_KEY=sk-...
+```
+
+…and bump the vector column in `infra/init.sql` from `vector(768)` to `vector(1536)` before re-seeding (OpenAI's `text-embedding-3-small` is 1536-dim, Ollama's `nomic-embed-text` is 768-dim).
 
 ## Chat flow
 

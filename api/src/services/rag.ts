@@ -1,7 +1,9 @@
-import { ChatOpenAI } from '@langchain/openai'
-import { OpenAIEmbeddings } from '@langchain/openai'
+import type { Embeddings } from '@langchain/core/embeddings'
+import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import { ChatPromptTemplate } from '@langchain/core/prompts'
 import { StringOutputParser } from '@langchain/core/output_parsers'
+import { ChatOllama, OllamaEmbeddings } from '@langchain/ollama'
+import { ChatOpenAI, OpenAIEmbeddings } from '@langchain/openai'
 import { env } from '../env.js'
 import { query } from './db.js'
 import { logger } from './logger.js'
@@ -41,17 +43,37 @@ Question: {question}
 Answer the question using only the context above. If the answer is not in the
 context, say you don't know and suggest a support ticket.`
 
-const chatModel = new ChatOpenAI({
-  apiKey: env.OPENAI_API_KEY,
-  model: env.OPENAI_CHAT_MODEL,
-  temperature: 0.2,
-  maxRetries: 2,
-})
+function buildChatModel(): BaseChatModel {
+  if (env.LLM_PROVIDER === 'openai') {
+    return new ChatOpenAI({
+      apiKey: env.OPENAI_API_KEY,
+      model: env.OPENAI_CHAT_MODEL,
+      temperature: 0.2,
+      maxRetries: 2,
+    })
+  }
+  return new ChatOllama({
+    baseUrl: env.OLLAMA_BASE_URL,
+    model: env.OLLAMA_CHAT_MODEL,
+    temperature: 0.2,
+  })
+}
 
-const embeddings = new OpenAIEmbeddings({
-  apiKey: env.OPENAI_API_KEY,
-  model: env.OPENAI_EMBEDDING_MODEL,
-})
+function buildEmbeddings(): Embeddings {
+  if (env.LLM_PROVIDER === 'openai') {
+    return new OpenAIEmbeddings({
+      apiKey: env.OPENAI_API_KEY,
+      model: env.OPENAI_EMBEDDING_MODEL,
+    })
+  }
+  return new OllamaEmbeddings({
+    baseUrl: env.OLLAMA_BASE_URL,
+    model: env.OLLAMA_EMBEDDING_MODEL,
+  })
+}
+
+const chatModel = buildChatModel()
+const embeddings = buildEmbeddings()
 
 const prompt = ChatPromptTemplate.fromMessages([
   ['system', systemPrompt],
@@ -59,6 +81,19 @@ const prompt = ChatPromptTemplate.fromMessages([
 ])
 
 const chain = prompt.pipe(chatModel).pipe(new StringOutputParser())
+
+logger.info(
+  {
+    provider: env.LLM_PROVIDER,
+    chat:
+      env.LLM_PROVIDER === 'openai' ? env.OPENAI_CHAT_MODEL : env.OLLAMA_CHAT_MODEL,
+    embeddings:
+      env.LLM_PROVIDER === 'openai'
+        ? env.OPENAI_EMBEDDING_MODEL
+        : env.OLLAMA_EMBEDDING_MODEL,
+  },
+  'rag provider configured'
+)
 
 export async function embed(text: string): Promise<number[]> {
   const [vector] = await embeddings.embedDocuments([text])
@@ -113,7 +148,7 @@ export async function answerQuestion(question: string): Promise<AnswerResult> {
 
   let answer: string
   try {
-    answer = await chain.invoke({ context, question })
+    answer = String(await chain.invoke({ context, question }))
   } catch (err) {
     logger.error({ err }, 'chat model invocation failed')
     throw new Error('chat model unavailable')

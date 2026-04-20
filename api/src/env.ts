@@ -4,10 +4,24 @@ import 'dotenv/config'
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   CHAT_API_PORT: z.coerce.number().int().positive().default(4000),
-  DATABASE_URL: z.string().min(1).default('postgres://sentinel:sentinel@localhost:5432/sentinel'),
+  DATABASE_URL: z
+    .string()
+    .min(1)
+    .default('postgres://sentinel:sentinel@localhost:5432/sentinel'),
+
+  // Which provider serves chat completions and embeddings.
+  // `ollama` is the default so the repo runs locally with zero cloud deps;
+  // `openai` is a drop-in fallback for hosted deployments.
+  LLM_PROVIDER: z.enum(['ollama', 'openai']).default('ollama'),
+
+  OLLAMA_BASE_URL: z.string().default('http://localhost:11434'),
+  OLLAMA_CHAT_MODEL: z.string().default('llama3.1:8b'),
+  OLLAMA_EMBEDDING_MODEL: z.string().default('nomic-embed-text'),
+
   OPENAI_API_KEY: z.string().min(1).default('sk-test'),
   OPENAI_CHAT_MODEL: z.string().default('gpt-4o-mini'),
   OPENAI_EMBEDDING_MODEL: z.string().default('text-embedding-3-small'),
+
   CHAT_API_SHARED_SECRET: z.string().default('change-me'),
   CHAT_RATE_LIMIT_PER_MIN: z.coerce.number().int().positive().default(30),
   AWS_REGION: z.string().default('us-west-2'),

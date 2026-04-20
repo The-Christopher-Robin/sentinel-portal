@@ -5,7 +5,9 @@ CREATE TABLE IF NOT EXISTS knowledge_chunks (
   source       TEXT NOT NULL,
   title        TEXT NOT NULL,
   content      TEXT NOT NULL,
-  embedding    vector(1536),
+  -- 768 dims = Ollama's nomic-embed-text (default provider). If you switch
+  -- LLM_PROVIDER=openai set this to vector(1536) for text-embedding-3-small.
+  embedding    vector(768),
   metadata     JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

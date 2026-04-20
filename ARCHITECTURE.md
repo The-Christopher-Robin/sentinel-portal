@@ -24,9 +24,11 @@ Express chat API (local dev) OR AWS Lambda + API Gateway (prod)
   │     └── upsert chat_conversations, append user message
   │
   ├── services/rag.ts
-  │     ├── embeddings.embedQuery(question)  (OpenAI text-embedding-3-small)
+  │     ├── embeddings.embedQuery(question)  (Ollama nomic-embed-text by default)
   │     ├── pgvector: ORDER BY embedding <=> $1 LIMIT 4
   │     └── prompt | chatModel | StringOutputParser  (LangChain)
+  │           chatModel = ChatOllama (llama3.1:8b) or ChatOpenAI (gpt-4o-mini)
+  │           picked at boot from LLM_PROVIDER env var
   │
   ├── services/conversations.ts
   │     └── append assistant message with latency_ms + retrieved_ids
@@ -45,7 +47,7 @@ Express chat API (local dev) OR AWS Lambda + API Gateway (prod)
 | source | text | `product/removal-flow`, `billing/plans`, etc. |
 | title | text | short human label |
 | content | text | 1–3 sentence chunk |
-| embedding | vector(1536) | `text-embedding-3-small` |
+| embedding | vector(768) | `nomic-embed-text` (Ollama). Swap to `vector(1536)` if you switch to OpenAI's `text-embedding-3-small`. |
 | metadata | jsonb | tokens, source-specific fields |
 
 Index: `ivfflat (embedding vector_cosine_ops) WITH (lists=100)`.
@@ -62,7 +64,7 @@ Auth.js v5 credentials provider on the web app, JWT session strategy. The portal
 Three reasons:
 
 1. The chat service runs cold-start cleanly on AWS Lambda as its own package, which keeps the portal's Vercel bundle small.
-2. Keeping the RAG code in a plain Node runtime avoids Next.js edge/runtime gotchas around `pg` and `@langchain/openai`.
+2. Keeping the RAG code in a plain Node runtime avoids Next.js edge/runtime gotchas around `pg`, `@langchain/ollama`, and `@langchain/openai`.
 3. Rate limiting, pooling, and request logging are easier to reason about in a single Express app than in scattered route handlers.
 
 ## Deployment
@@ -77,6 +79,12 @@ Vitest covers:
 
 - `tests/auth.test.ts` — shared-secret middleware accepts / rejects correctly and forwards `x-user-id`.
 - `tests/chat.validation.test.ts` — zod schema handles empty, oversized, and malformed input.
-- `tests/rag.test.ts` — retrieval path mocked end-to-end so CI can run without OpenAI or Postgres.
+- `tests/rag.test.ts` — `formatContext` unit-tested as a pure function so CI runs with no model server (Ollama, OpenAI) and no Postgres.
+
+## Why a provider-abstracted LLM layer
+
+`services/rag.ts` picks the chat model and embedder at boot from `LLM_PROVIDER`. The default (`ollama`) runs against a local Ollama daemon with open-weight models (`llama3.1:8b`, `nomic-embed-text`). Setting `LLM_PROVIDER=openai` drops in OpenAI's hosted models without any other code change.
+
+Why bother: (1) it keeps the demo zero-cost and zero-key for anyone cloning the repo, (2) it matches the privacy story — customer support transcripts never have to leave the deployment's network perimeter, and (3) switching providers in production becomes a config change rather than a refactor.
 
 CI runs typecheck + tests on every PR via GitHub Actions.
