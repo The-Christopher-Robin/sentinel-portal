@@ -1,5 +1,12 @@
 import { z } from 'zod'
-import 'dotenv/config'
+import { config as loadDotenv } from 'dotenv'
+import { resolve } from 'node:path'
+
+// Load .env from the api workspace first, then fall back to the monorepo root.
+// npm workspace scripts run with cwd=api/ so the root .env needs an explicit
+// path for a single-file config to work across the whole repo.
+loadDotenv({ path: resolve(process.cwd(), '.env') })
+loadDotenv({ path: resolve(process.cwd(), '..', '.env') })
 
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),

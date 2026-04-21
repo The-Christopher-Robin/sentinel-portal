@@ -1,3 +1,8 @@
+const path = require('node:path')
+// Load the monorepo-root .env so a single config file serves both web and api.
+// Next.js only reads .env files from the web workspace by default.
+require('dotenv').config({ path: path.resolve(__dirname, '..', '.env') })
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
